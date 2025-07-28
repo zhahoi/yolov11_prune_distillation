@@ -5,6 +5,10 @@ Pruning and Distillation of the YOLOv11 Model.
 
 
 
+🤗***Current Ultralytics version: 8.3.160***
+
+
+
 ## 🔧 Install Dependencies
 
 ```shell
@@ -14,7 +18,7 @@ pip install -r requirements.txt
 
 
 
-## 🚂 Training &Pruning&Knowledge Distillation
+## 🚂 Training & Pruning & Knowledge Distillation
 
 ### 📊 YOLO11 Training Example
 
@@ -189,3 +193,4 @@ Feel free to submit issues or pull requests on GitHub for questions or suggestio
 - Special thanks to [@Ultralytics](https://github.com/ultralytics) for the contribution to the [ultralytics](https://github.com/ultralytics/ultralytics) project! This project relies on it for the framework.
 - [YOLO-Pruning-RKNN](https://github.com/heyongxin233/YOLO-Pruning-RKNN)
 - [yolov11_prune_distillation_v2](https://github.com/garlic-byte/yolov11_prune_distillation_v2.git)
+
