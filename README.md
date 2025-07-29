@@ -1,110 +1,121 @@
-# yolov11_prune_distillation
-Pruning and Distillation of the YOLOv11 Model.
+# 🦾 YOLOv11 Pruning & Distillation
 
-**This project can be used for training, static pruning, and knowledge distillation of the YOLOv11 network. It aims to reduce the number of model parameters while preserving inference accuracy as much as possible.**
+A PyTorch-based pipeline for **training**, **static pruning**, and **knowledge distillation** of the YOLOv11 object detection model.
 
+This project enables significant **model compression** by pruning redundant structures and transferring knowledge from a teacher model to a student model — all while maintaining strong detection accuracy.
 
+> 📌 **Current Ultralytics Version**: `8.3.160`
 
-🤗***Current Ultralytics version: 8.3.160***
+------
 
+## 📦 Features
 
+- ✅ YOLOv11 base model training
+- ✂️ Structured static pruning using `torch-pruning`
+- 📚 Multiple distillation strategies: `CWD`, `MGD`, `AT`, `SKD`, `PKD`
+- 🧠 Student model can optionally be enhanced with attention modules
+- 🔌 ONNX model export & deployment
+- 📈 FLOPs/Params calculation using `thop`
 
-## 🔧 Install Dependencies
+------
 
-```shell
-pip install torch-pruning 
+## 🔧 Installation
+
+```sh
+git clone https://github.com/your-repo/yolov11_prune_distillation.git
+cd yolov11_prune_distillation
+
+# Install torch-pruning
+pip install torch-pruning
+
+# Install other dependencies
 pip install -r requirements.txt
 ```
 
+------
 
+## 🚂 Workflow Overview
 
-## 🚂 Training & Pruning & Knowledge Distillation
-
-### 📊 YOLO11 Training Example
+### 1. 🔁 Training YOLOv11
 
 ```python
-### train.py
 from ultralytics import YOLO
 
-if __name__ == "__main__":
-    model = YOLO('yolo11.yaml')
-    results = model.train(data='uno.yaml', epochs=100, imgsz=640, batch=8, device="0", name='yolo11', workers=0, prune=False)
+model = YOLO('yolo11.yaml')  # or use a pre-trained weight path
+model.train(data='uno.yaml', epochs=100, imgsz=640, batch=8, device="0", name='yolo11')
 ```
 
+------
 
+### 2. ✂️ Static Pruning
 
-### ✂️ YOLO11 Pruning Example
+Supports both **quick pruning** and **multi-phase sparse-prune training**.
 
 ```python
-### prune.py
 from ultralytics import YOLO
 
-# model = YOLO('yolo11.yaml')
 model = YOLO('runs/detect/yolo11/weights/best.pt')
 
 def prunetrain(train_epochs, prune_epochs=0, quick_pruning=True, prune_ratio=0.5, 
                prune_iterative_steps=1, data='coco.yaml', name='yolo11', imgsz=640, 
                batch=8, device=[0], sparse_training=False):
     if not quick_pruning:
-        assert train_epochs > 0 and prune_epochs > 0, "Quick Pruning is not set. prune epochs must > 0."
-        print("Phase 1: Normal training...")
-        model.train(data=data, epochs=train_epochs, imgsz=imgsz, batch=batch, device=device, name=f"{name}_phase1", prune=False,
-                    sparse_training=sparse_training)
+        print("Phase 1: Pre-training...")
+        model.train(data=data, epochs=train_epochs, prune=False, sparse_training=sparse_training)
         
-        print("Phase 2: Pruning training...")
+        print("Phase 2: Pruning...")
         best_weights = f"runs/detect/{name}_phase1/weights/best.pt"
         pruned_model = YOLO(best_weights)
-        
-        return pruned_model.train(data=data, epochs=prune_epochs, imgsz=imgsz, batch=batch, device=device, name=f"{name}_pruned", prune=True,
-                           prune_ratio=prune_ratio, prune_iterative_steps=prune_iterative_steps)
+        return pruned_model.train(data=data, epochs=prune_epochs, prune=True, prune_ratio=prune_ratio)
     else:
-        return model.train(data=data, epochs=train_epochs, imgsz=imgsz, batch=batch, device=device, 
-                           name=name, prune=True, prune_ratio=prune_ratio, prune_iterative_steps=prune_iterative_steps)
-
+        return model.train(data=data, epochs=train_epochs, prune=True, prune_ratio=prune_ratio)
 
 if __name__ == '__main__':
-    # Normal Pruning
-    prunetrain(quick_pruning=False,       # Quick Pruning or not
-            data='uno.yaml',          # Dataset config
-            train_epochs=10,           # Epochs before pruning
-            prune_epochs=20,           # Epochs after pruning 
-            imgsz=640,                 # Input size
-            batch=8,                   # Batch size
-            device=[0],                # GPU devices
-            name='yolo11_prune',             # Save name
-            prune_ratio=0.5,           # Pruning Ratio (50%)
-            prune_iterative_steps=1,   # Pruning Interative Steps
-            sparse_training=True      # Experimental, Allow Sparse Training Before Pruning
+    prunetrain(
+        train_epochs=10, 
+        prune_epochs=20, 
+        quick_pruning=False,
+        prune_ratio=0.5,
+        prune_iterative_steps=1,
+        data='uno.yaml',
+        batch=8,
+        imgsz=640,
+        device=[0],
+        name='yolo11_prune',
+        sparse_training=True
     )
-    # Quick Pruning (prune_epochs no need)
-    # prunetrain(quick_pruning=True, data='coco.yaml', train_epochs=10, imgsz=640, batch=8, device=[0], name='yolo11', 
-    #            prune_ratio=0.5, prune_iterative_steps=1)
 ```
 
+------
 
+### 3. 📚 Knowledge Distillation
 
-### 🔎 YOLO11 Knowledge Distillation Example
+Supports multiple loss strategies:
+
+- `CWD`: Channel-Wise Distillation
+- `MGD`: Masked Generative Distillation
+- `AT`: Attention Transfer
+- `SKD`: Spatial Knowledge Distillation
+- `PKD`: Pearson Correlation-based Distillation
 
 ```python
-### knowledge_distillation.py
 from ultralytics import YOLO
 from ultralytics.nn.attention.attention import add_attention
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.utils.torch_utils import model_info
 
-
 if __name__ == "__main__":
-    # layers = ["6", "8", "13", "16", "19", "22"]
     layers = ["4", "6", "10", "16", "19", "22"]
-    model_t = YOLO('runs/detect/yolo11/weights/best.pt')  # the teacher model
-    model_s = YOLO("runs/detect/yolo11_prune_pruned/weights/best.pt")  # the student model
-    model_s = add_attention(model_s) # Add attention to the student model
-    
-    # configure overrides
+
+    model_t = YOLO('runs/detect/yolo11/weights/best.pt')           # Teacher
+    model_s = YOLO('runs/detect/yolo11_prune_pruned/weights/best.pt')  # Student
+
+    model_s = add_attention(model_s)  # Optional: Inject attention for better distillation
+
     overrides = {
-        "model": "runs/detect/yolo11_prune_pruned/weights/best.pt",
+        "model": model_s.ckpt_path,
         "Distillation": model_t.model,
-        "loss_type": "at",  #  {'cwd', 'mgd', 'at', 'skd', 'pkd'}
+        "loss_type": "at",  # 'cwd', 'mgd', 'at', 'skd', 'pkd'
         "layers": layers,
         "epochs": 50,
         "imgsz": 640,
@@ -119,63 +130,73 @@ if __name__ == "__main__":
         "data": "uno.yaml",
         "name": "yolo11_distill"
     }
-    
+
     trainer = DetectionTrainer(overrides=overrides)
-    trainer.model = model_s.model 
+    trainer.model = model_s.model
     model_info(trainer.model, verbose=True)
-    trainer.train()  
+    trainer.train()
 ```
 
-
+------
 
 ## 📤 Model Export
 
-### Export to ONNX Format Example
+Export your trained model to **ONNX** format for deployment:
 
 ```python
-### export.py
 from ultralytics import YOLO
 
 model = YOLO('runs/detect/yolo11_distill/weights/yolo11n.pt')
-print(model.model)
 model.export(format='onnx')
 ```
 
+------
 
+## 🖼️ Inference Demo
 
-## 🌞 Model Inference
-
-### Image Inference Example
+Run inference on a single image:
 
 ```python
-### infer.py
 from ultralytics import YOLO
-model = YOLO('runs/detect/yolo11/weights/best.pt') # model = YOLO('prune.pt')
+
+model = YOLO('runs/detect/yolo11/weights/best.pt')
 model.predict('fruits.jpg', save=True, device=[0], line_width=2)
 ```
 
+------
 
+## 📊 Model Analysis
 
-## 🔢 Model Analysis
+Install `thop` to calculate FLOPs and parameter counts:
 
-Use `thop` to easily calculate model parameters and FLOPs:
-
-```bash
+```python
 pip install thop
 ```
 
-You can calculate model parameters and flops by using `calculate.py`
+Use `calculate.py` in this repo to analyze your model’s complexity.
 
+------
 
+------
 
 ## 🤝 Contributing & Support
 
-Feel free to submit issues or pull requests on GitHub for questions or suggestions!
+We welcome contributions! Feel free to:
 
-## 📚 Acknowledgements
+- 📥 Submit a pull request for enhancements or bugfixes
+- 📩 Open an issue for questions, suggestions, or bugs
 
-- Special thanks to [@VainF](https://github.com/VainF) for the contribution to the [Torch-Pruning](https://github.com/VainF/Torch-Pruning) project! This project relies on it for model pruning.
-- Special thanks to [@Ultralytics](https://github.com/ultralytics) for the contribution to the [ultralytics](https://github.com/ultralytics/ultralytics) project! This project relies on it for the framework.
-- [YOLO-Pruning-RKNN](https://github.com/heyongxin233/YOLO-Pruning-RKNN)
-- [yolov11_prune_distillation_v2](https://github.com/garlic-byte/yolov11_prune_distillation_v2.git)
+------
 
+## 🙏 Acknowledgements
+
+- 💡 [**Ultralytics**](https://github.com/ultralytics/ultralytics): The core YOLO training framework.
+- ✂️ [**Torch-Pruning**](https://github.com/VainF/Torch-Pruning): Channel-pruning library used in this repo.
+- 📦 [YOLO-Pruning-RKNN](https://github.com/heyongxin233/YOLO-Pruning-RKNN): Related pruning reference.
+- 🔁 [yolov11_prune_distillation_v2](https://github.com/garlic-byte/yolov11_prune_distillation_v2): Related distillation inspiration.
+
+------
+
+## 📬 Contact
+
+For questions or collaboration opportunities, feel free to reach out via GitHub Issues or Discussions!

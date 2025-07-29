@@ -204,8 +204,7 @@ class FeatureLoss(nn.Module):
             self.align_module = None
             self.norm_t = None
             self.norm_s = None
-        
-        aligned_channels_s = channels_t if self.need_align else channels_s
+     
         self.feature_loss = self.build_feature_loss(distiller, channels_s, channels_t)
         
     def build_feature_loss(self, name, channels_s, channels_t):
