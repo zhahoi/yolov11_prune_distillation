@@ -1,21 +1,7 @@
 from ultralytics import YOLO
-from ultralytics.nn.attention.attention import ParallelPolarizedSelfAttention
+from ultralytics.nn.attention.attention import add_attention
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.utils.torch_utils import model_info
-
-def add_attention(model):
-    at0 = model.model.model[4]
-    n0 = at0.cv2.conv.out_channels
-    at0.attention = ParallelPolarizedSelfAttention(n0)
-
-    at1 = model.model.model[6]
-    n1 = at1.cv2.conv.out_channels
-    at1.attention = ParallelPolarizedSelfAttention(n1)
-
-    at2 = model.model.model[8]
-    n2 = at2.cv2.conv.out_channels
-    at2.attention = ParallelPolarizedSelfAttention(n2)
-    return model
 
 
 if __name__ == "__main__":
@@ -23,14 +9,14 @@ if __name__ == "__main__":
     layers = ["4", "6", "10", "16", "19", "22"]
     model_t = YOLO('runs/detect/yolo11/weights/best.pt')  # the teacher model
     model_s = YOLO("runs/detect/yolo11_prune_pruned/weights/best.pt")  # the student model
-    model_s = add_attention(model_s)
+    model_s = add_attention(model_s) # Add attention to the student model
     
     # configure overrides
     overrides = {
         "model": "runs/detect/yolo11_prune_pruned/weights/best.pt",
         "Distillation": model_t.model,
-        "loss_type": "mgd",
-        "layers": ["4", "6", "10", "16", "19", "22"],
+        "loss_type": "at",  #  {'cwd', 'mgd', 'at', 'skd', 'pkd'}
+        "layers": layers,
         "epochs": 50,
         "imgsz": 640,
         "batch": 8,
@@ -41,7 +27,7 @@ if __name__ == "__main__":
         "prune": False,
         "prune_load": False,
         "workers": 0,
-        "data": "data.yaml",
+        "data": "uno.yaml",
         "name": "yolo11_distill"
     }
     
