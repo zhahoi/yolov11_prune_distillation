@@ -13,7 +13,7 @@ if __name__ == "__main__":
     
     # configure overrides
     overrides = {
-        "model": "runs/detect/yolo11_prune_pruned/weights/best.pt",
+        "model": "",
         "Distillation": model_t.model,
         "loss_type": "at",  #  {'cwd', 'mgd', 'at', 'skd', 'pkd'}
         "layers": layers,
@@ -33,6 +33,10 @@ if __name__ == "__main__":
     
     trainer = DetectionTrainer(overrides=overrides)
     trainer.model = model_s.model 
+    
+    print(f"Student model type: {type(trainer.model)}")
+    print(f"Teacher model type: {type(model_t.model)}")
+    
     model_info(trainer.model, verbose=True)
     trainer.train()
     

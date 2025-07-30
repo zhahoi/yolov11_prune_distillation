@@ -15,7 +15,7 @@ import warnings
 from copy import copy, deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
-from ultralytics.nn.modules import Detect, Attention
+from ultralytics.nn.modules import Detect, Attention, Pose
 
 import numpy as np
 import torch
@@ -291,7 +291,7 @@ class BaseTrainer:
             example_inputs = torch.randn(1, 3, self.args.imgsz, self.args.imgsz)
             ignored_layers = []
             for m in self.model.modules():
-                if isinstance(m, (Detect, Attention, )):
+                if isinstance(m, (Detect, Attention, Pose)):
                     ignored_layers.append(m)
             self.pruner = tp.pruner.MagnitudePruner(
                 self.model,
